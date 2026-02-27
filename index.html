@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TG TEAM - THÀNH TIÊN LỘ</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+        
+        /* Đảm bảo canvas luôn full màn hình */
+        canvas { display: block; position: absolute; top: 0; left: 0; }
+        
+        #ui-layer { 
+            position: absolute; inset: 0; pointer-events: none; z-index: 10;
+            /* Hỗ trợ notch trên điện thoại */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+        }
+        
+        #stats-box { 
+            position: absolute; top: 15px; left: 15px; width: 220px; 
+            padding: 12px; background: rgba(0,0,0,0.85); border: 2px solid #ffd700; 
+            border-radius: 10px; pointer-events: auto;
+        }
+        #rank-display { font-weight: bold; color: #ffd700; font-size: 16px; text-align: center; margin-bottom: 8px; text-transform: uppercase; text-shadow: 0 0 5px #ffd700; }
+        .bar { width: 100%; height: 10px; background: #222; margin: 6px 0; border-radius: 5px; overflow: hidden; border: 1px solid #444; }
+        #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ff1744, #ff5252); transition: width 0.2s; }
+        #exp-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00e5ff, #18ffff); }
+        
+        .cd-container { margin-top: 10px; display: flex; gap: 10px; }
+        .cd-item { flex: 1; text-align: center; font-size: 9px; color: #ccc; }
+        .cd-bar-bg { width: 100%; height: 4px; background: #333; border-radius: 2px; margin-top: 3px; overflow: hidden; }
+        .cd-fill { height: 100%; width: 0%; background: #ffd700; }
+
+        #boss-ui { 
+            position: absolute; top: 30px; left: 50%; transform: translateX(-50%); 
+            width: 70%; max-width: 600px; text-align: center; display: none;
+        }
+        #boss-hp-bar { width: 100%; height: 15px; background: #111; border: 2px solid #f00; border-radius: 8px; overflow: hidden; }
+        #boss-hp-fill { width: 100%; height: 100%; background: #f00; }
+        #boss-cd-bar { width: 50%; height: 4px; background: #222; margin: 5px auto; border-radius: 2px; overflow: hidden; }
+        #boss-cd-fill { width: 0%; height: 100%; background: #ffaa00; }
+
+        #mobile-controls { position: absolute; inset: 0; pointer-events: none; display: none; }
+        /* Hiển thị điều khiển mobile khi màn hình nhỏ */
+        @media (max-width: 1024px) { #mobile-controls { display: block; } }
+        
+        #joy-bg { position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid #00fbff; pointer-events: auto; }
+        #joy-stick { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: #00fbff; border-radius: 50%; transform: translate(-50%, -50%); }
+        
+        .btn-s { position: absolute; width: 70px; height: 70px; background: rgba(0,0,0,0.8); border: 2px solid #ffd700; border-radius: 50%; color: #fff; font-weight: bold; display: flex; align-items: center; justify-content: center; pointer-events: auto; font-size: 12px;}
+        #btn-f { bottom: 60px; right: 120px; border-color: #00e676; }
+        #btn-shift { bottom: 130px; right: 40px; border-color: #00e5ff; }
+
+        .overlay { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; color: #ffd700; text-align: center; padding: 20px; }
+        .start-btn { padding: 15px 40px; font-size: 20px; background: #ffd700; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; margin-top: 20px; box-shadow: 0 0 20px #ffd700; transition: transform 0.1s; }
+        .start-btn:active { transform: scale(0.95); }
+        
+        #win-screen { background: radial-gradient(circle, #1a1a00, #000); display: none; }
+        .win-title { font-size: 60px; color: #ffd700; text-shadow: 0 0 30px #ffd700; margin: 0; }
+    </style>
+</head>
+<body>
+
+<div id="start-screen" class="overlay">
+    <h1 style="font-size: 50px; margin-bottom: 0;">TG TEAM</h1>
+    <p>HÀNH TRÌNH NGHỊCH THIÊN CẢI MỆNH</p>
+    <button class="start-btn" onclick="startGame()">KHỞI ĐẦU TU TIÊN</button>
+</div>
+
+<div id="end-screen" class="overlay" style="display: none;">
+    <h1 style="color: #f14; font-size: 40px;">ĐẠO TIÊU THÂN VONG</h1>
+    <p>Tu vi một đời tan thành mây khói...</p>
+    <button class="start-btn" onclick="location.reload()">TRỌNG SINH</button>
+</div>
+
+<div id="win-screen" class="overlay">
+    <h1 class="win-title">ĐẮC ĐẠO THÀNH TIÊN</h1>
+    <p style="font-size: 20px; color: #fff;">Chúc mừng đạo hữu đã đạt cảnh giới <b style="color:#ffd700">CHÍ TÔN</b>!<br>Thống nhất tam giới, thọ cùng trời đất.</p>
+    <button class="start-btn" onclick="location.reload()">TIẾP TỤC TU LUYỆN</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="ui-layer">
+    <div id="stats-box">
+        <div id="rank-display">PHÀM NHÂN - LV.1</div>
+        <div class="bar"><div id="hp-fill"></div></div>
+        <div class="bar"><div id="exp-fill"></div></div>
+        <div class="cd-container">
+            <div class="cd-item">KIẾM (F)<div class="cd-bar-bg"><div id="f-cd-fill" class="cd-fill"></div></div></div>
+            <div class="cd-item">NÉ (SHIFT)<div class="cd-bar-bg"><div id="s-cd-fill" class="cd-fill"></div></div></div>
+        </div>
+    </div>
+    <div id="boss-ui">
+        <div id="boss-name" style="color:#f14; font-weight:bold;">MA THẦN</div>
+        <div id="boss-hp-bar"><div id="boss-hp-fill"></div></div>
+        <div id="boss-cd-bar"><div id="boss-cd-fill"></div></div>
+    </div>
+    <div id="mobile-controls">
+        <div id="joy-bg"><div id="joy-stick"></div></div>
+        <div id="btn-f" class="btn-s">KIẾM</div>
+        <div id="btn-shift" class="btn-s">NÉ</div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let gameActive = false, enemies = [], boss = { active: false }, bossProj = [];
+let keys = {}, joystick = { active: false, x: 0, y: 0, id: null };
+const RANKS = ["Phàm Nhân", "Luyện Khí", "Trúc Cơ", "Kim Đan", "Nguyên Anh", "Hóa Thần", "Luyện Hư", "Hợp Thể", "Đại Thừa", "Độ Kiếp", "Chí Tôn"];
+
+let p = { x: 100, y: 300, w: 35, h: 45, lv: 1, hp: 1000, maxHp: 1000, exp: 0, dmg: 150, fCD: 300, fTimer: 0, fActive: 0, sCD: 200, sTimer: 0, sActive: 0 };
+
+// Resize canvas full màn hình
+function resize() { 
+    canvas.width = window.innerWidth; 
+    canvas.height = window.innerHeight; 
+}
+window.addEventListener('resize', resize); 
+resize();
+
+// --- FULLSCREEN API ---
+function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+            console.log(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+        });
+    }
+}
+
+function handleAttack(ex, ey) {
+    if(!gameActive) return;
+    enemies.forEach(en => { if(Math.hypot(ex-en.x, ey-en.y) < 70) en.hp -= p.dmg; });
+    if(boss.active) boss.parts.forEach(pt => { if(Math.hypot(ex-pt.x, ey-pt.y) < 80) boss.hp -= p.dmg; });
+}
+canvas.addEventListener('mousedown', e => handleAttack(e.clientX, e.clientY));
+canvas.addEventListener('touchstart', e => {
+    for(let t of e.changedTouches) if(t.identifier !== joystick.id) handleAttack(t.clientX, t.clientY);
+}, {passive: false});
+
+window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if(e.code === 'KeyF') triggerSkill('F');
+    if(e.code.includes('Shift')) triggerSkill('SHIFT');
+});
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+function triggerSkill(type) {
+    if(!gameActive) return;
+    if(type === 'F' && p.fTimer <= 0) { p.fActive = 120; p.fTimer = p.fCD; }
+    if(type === 'SHIFT' && p.sTimer <= 0) { p.sActive = 30; p.sTimer = p.sCD; }
+}
+
+const joyBg = document.getElementById('joy-bg');
+joyBg.addEventListener('touchstart', e => { e.preventDefault(); joystick.active = true; joystick.id = e.changedTouches[0].identifier; }, {passive: false});
+window.addEventListener('touchmove', e => {
+    if(!joystick.active) return;
+    for(let t of e.touches) if(t.identifier === joystick.id) {
+        const r = joyBg.getBoundingClientRect();
+        const dx = t.clientX-(r.left+r.width/2), dy = t.clientY-(r.top+r.height/2);
+        const dist = Math.min(Math.hypot(dx, dy), 50), angle = Math.atan2(dy, dx);
+        joystick.x = (Math.cos(angle)*dist)/50; joystick.y = (Math.sin(angle)*dist)/50;
+        document.getElementById('joy-stick').style.transform = `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px))`;
+    }
+}, {passive: false});
+window.addEventListener('touchend', e => {
+    for(let t of e.changedTouches) if(t.identifier === joystick.id) {
+        joystick.active = false; joystick.x = 0; joystick.y = 0;
+        document.getElementById('joy-stick').style.transform = 'translate(-50%, -50%)';
+    }
+});
+
+document.getElementById('btn-f').addEventListener('touchstart', e => { e.preventDefault(); triggerSkill('F'); });
+document.getElementById('btn-shift').addEventListener('touchstart', e => { e.preventDefault(); triggerSkill('SHIFT'); });
+
+// --- Bắt đầu game và bật toàn màn hình ---
+function startGame() { 
+    toggleFullScreen();
+    document.getElementById('start-screen').style.display = 'none'; 
+    gameActive = true; 
+}
+
+function spawnBoss() {
+    boss.active = true;
+    boss.type = Math.floor(Math.random() * 3);
+    boss.maxHp = 5000 * Math.pow(2.2, Math.floor(p.lv/2));
+    boss.hp = boss.maxHp;
+    boss.parts = Array(12).fill().map(() => ({x: canvas.width + 100, y: canvas.height/2}));
+    boss.skillCD = 200; boss.skillTimer = 0;
+    document.getElementById('boss-ui').style.display = 'block';
+    const names = ["MA THẦN (HỎA BIẾN)", "HUYẾT LONG (TRU DIỆT)", "THIÊN MA (NHẬP THỂ)"];
+    document.getElementById('boss-name').innerText = names[boss.type];
+    bossProj = [];
+}
+
+function update() {
+    if(!gameActive) return;
+
+    // Tốc độ di chuyển tương đối với kích thước màn hình
+    let moveSpeed = canvas.width / 150; 
+    let mx = joystick.active ? joystick.x : ((keys['KeyD']?1:0)-(keys['KeyA']?1:0));
+    let my = joystick.active ? joystick.y : ((keys['KeyS']?1:0)-(keys['KeyW']?1:0));
+    p.x = Math.max(0, Math.min(canvas.width - p.w, p.x + mx * moveSpeed));
+    p.y = Math.max(0, Math.min(canvas.height - 100, p.y + my * moveSpeed));
+
+    if(p.fTimer > 0) p.fTimer--; if(p.fActive > 0) p.fActive--;
+    if(p.sTimer > 0) p.sTimer--; if(p.sActive > 0) p.sActive--;
+    document.getElementById('f-cd-fill').style.width = ((p.fCD - p.fTimer) / p.fCD * 100) + '%';
+    document.getElementById('s-cd-fill').style.width = ((p.sCD - p.sTimer) / p.sCD * 100) + '%';
+
+    if(!boss.active && Math.random() < 0.03) enemies.push({x: canvas.width+50, y: 50+Math.random()*(canvas.height-150), hp: 100+p.lv*150, speed: 4});
+    enemies.forEach((en, i) => {
+        en.x -= en.speed;
+        let d = Math.hypot(p.x - en.x, p.y - en.y);
+        if(p.fActive > 0 && d < 120) en.hp -= 20;
+        if(d < 40 && p.sActive <= 0) p.hp -= 4;
+        if(en.hp <= 0) { enemies.splice(i,1); p.exp += 20; }
+        else if(en.x < -100) enemies.splice(i,1);
+    });
+
+    if(boss.active) {
+        let head = boss.parts[0]; head.x -= 1.5; head.y = canvas.height/2 + Math.sin(Date.now()*0.002) * (canvas.height/4);
+        if(head.x < -300) head.x = canvas.width + 300;
+        boss.skillTimer++;
+        document.getElementById('boss-cd-fill').style.width = (boss.skillTimer / boss.skillCD * 100) + '%';
+        if(boss.skillTimer >= boss.skillCD) {
+            boss.skillTimer = 0;
+            if(boss.type === 0) for(let i=0; i<5; i++) bossProj.push({x: head.x, y: head.y, vx: -10, vy: (i-2)*3});
+            else if(boss.type === 1) head.x -= 200;
+            else enemies.push({x: head.x, y: head.y, hp: 400, speed: 5});
+        }
+        boss.parts.forEach((pt, i) => {
+            if(i > 0) { pt.x += (boss.parts[i-1].x - pt.x) * 0.15; pt.y += (boss.parts[i-1].y - pt.y) * 0.15; }
+            if(Math.hypot(p.x - pt.x, p.y - pt.y) < 45 && p.sActive <= 0) p.hp -= 10;
+            if(p.fActive > 0 && Math.hypot(p.x - pt.x, p.y - pt.y) < 140) boss.hp -= 10;
+        });
+        bossProj.forEach((pr, i) => {
+            pr.x += pr.vx; pr.y += pr.vy;
+            if(Math.hypot(p.x - pr.x, p.y - pr.y) < 35 && p.sActive <= 0) { p.hp -= 60; bossProj.splice(i,1); }
+            if(pr.x < -50) bossProj.splice(i,1);
+        });
+        document.getElementById('boss-hp-fill').style.width = (boss.hp/boss.maxHp*100) + '%';
+        if(boss.hp <= 0) { boss.active = false; p.exp = 100; document.getElementById('boss-ui').style.display = 'none'; }
+    }
+
+    if(p.exp >= 100) {
+        p.lv++; p.exp = 0; p.maxHp += 500; p.hp = p.maxHp; p.dmg += 80;
+        let rIdx = Math.min(Math.floor((p.lv-1)/2), RANKS.length-1);
+        document.getElementById('rank-display').innerText = `${RANKS[rIdx].toUpperCase()} - LV.${p.lv}`;
+        if(p.lv === 21) { gameActive = false; document.getElementById('win-screen').style.display = 'flex'; }
+        else if(p.lv % 2 === 0) spawnBoss();
+    }
+
+    document.getElementById('hp-fill').style.width = (p.hp/p.maxHp*100) + '%';
+    document.getElementById('exp-fill').style.width = p.exp + '%';
+    if(p.hp <= 0) { gameActive = false; document.getElementById('end-screen').style.display = 'flex'; }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if(!gameActive && p.hp > 0) return;
+    
+    // Vẽ nhân vật
+    ctx.shadowBlur = 15; ctx.shadowColor = p.sActive > 0 ? "#fff" : "#00fbff";
+    ctx.fillStyle = p.sActive > 0 ? "rgba(255,255,255,0.4)" : "#00fbff";
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    
+    // Vẽ vòng hào quang kỹ năng
+    if(p.fActive > 0) { ctx.strokeStyle = "#00e676"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(p.x+p.w/2, p.y+p.h/2, 110, 0, Math.PI*2); ctx.stroke(); }
+    
+    // Vẽ kẻ địch
+    ctx.shadowColor = "#f00"; ctx.fillStyle = "#f14";
+    enemies.forEach(en => ctx.fillRect(en.x-15, en.y-15, 35, 35));
+    
+    // Vẽ Boss
+    if(boss.active) {
+        boss.parts.forEach((pt, i) => {
+            ctx.fillStyle = i === 0 ? "#fff" : "#600";
+            ctx.beginPath(); ctx.arc(pt.x, pt.y, i===0?50:30, 0, Math.PI*2); ctx.fill();
+        });
+        ctx.fillStyle = "#ff0";
+        bossProj.forEach(pr => { ctx.beginPath(); ctx.arc(pr.x, pr.y, 10, 0, Math.PI*2); ctx.fill(); });
+    }
+    ctx.shadowBlur = 0;
+}
+
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
